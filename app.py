@@ -11,7 +11,7 @@ CORS(app)
 load_dotenv()
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=("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")
+    api_key=os.getenv("GROQ_API_KEY")
 )
 mots_cuisine_reference = [
     # Actions
