@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChefBot - Assistant Cuisine</title>
+    <style>
+        /* Base & Reset */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; 
+        color: #212529; height: 100vh; overflow: hidden; }
+
+        /* Layout Global */
+        .wrapper { display: flex; height: 100vh; width: 100vw; }
+
+        /* Barre latérale (Sidebar) */
+        .sidebar { width: 250px; background: #fff; border-right: 1px solid #dee2e6; padding: 1.5rem 1rem; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar h5 { color: #0d6efd; font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 600; }
+        .sidebar hr { border: 0; border-top: 1px solid #dee2e6; margin: 0.5rem 0 1.5rem 0; }
+        
+        /* Correction des puces noires */
+        .nav-list { list-style: none !important; list-style-type: none !important; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+        .nav-list li { list-style: none !important; padding: 0; margin: 0; }
+        
+        .nav-link { cursor: pointer; display: block; padding: 0.75rem 1rem; text-decoration: none; color: #495057; border-radius: 0.375rem; transition: all 0.2s; 
+            font-size: 0.95rem; }
+        .nav-link:hover { background-color: #f1f3f5; color: #212529; }
+        .nav-link.active { color: #0d6efd; font-weight: 600; background-color: #e7f1ff; }
+
+        /* Contenu Principal */
+        .main-content { flex-grow: 1; padding: 2rem; display: flex; flex-direction: column; height: 100vh; position: relative; }
+        h3 { font-size: 1.75rem; font-weight: 500; margin-bottom: 1.5rem; }
+
+        /* Sections */
+        #chat-section { display: flex; flex-direction: column; flex-grow: 1; height: calc(100vh - 4rem); }
+
+        /* Containers de listes & chat */
+        .chat-container { flex-grow: 1; height: 0; overflow-y: auto; border-radius: 15px; background: white; border: 1px solid #dee2e6; padding: 1.5rem;
+         box-shadow: 0 .125rem .25rem rgba(0,0,0,.05); display: flex; flex-direction: column; }
+        .list-container { height: 70vh; overflow-y: auto; border-radius: 15px; background: white; border: 1px solid #dee2e6; padding: 1.5rem;
+         box-shadow: 0 .125rem .25rem rgba(0,0,0,.05); }
+        
+        .p-2 { padding: 0.75rem; }
+        .border-bottom { border-bottom: 1px solid #dee2e6; }
+
+        /* Éléments de messages */
+        .msg-bot { background-color: #e9ecef; border-radius: 15px; padding: 12px 18px; margin-bottom: 12px; max-width: 75%; 
+            
+        align-self: flex-start; line-height: 1.5; }
+        .msg-user { background-color: #0d6efd; color: white; border-radius: 15px; padding: 12px 18px; margin-bottom: 12px; max-width: 75%; align-self: flex-end;
+             line-height: 1.5; }
+        .text-danger { color: #dc3545; }
+        .text-muted { color: #6c757d; font-size: 0.85rem; }
+
+        /* Composants de formulaires (Barre du bas) */
+        .input-group { display: flex; margin-top: 1.25rem; margin-bottom: 0.5rem; width: 100%; height: 45px; flex-shrink: 0; }
+        .form-control { flex-grow: 1; padding: 0.375rem 1rem; font-size: 1rem; border: 1px solid #ced4da; border-top-left-radius: 0.375rem; 
+            border-bottom-left-radius: 0.375rem; outline: none; transition: border-color 0.2s; }
+        .form-control:focus { border-color: #86b7fe; }
+        
+        /* Boutons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; font-weight: 500; cursor: pointer; user-select: none;
+            padding: 0 1.5rem; font-size: 1rem; border-radius: 0.375rem; border: 1px solid transparent; transition: all 0.15s; }
+        .btn-primary { color: #fff; background-color: #0d6efd; border-color: #0d6efd; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        .btn-primary:hover { background-color: #0b5ed7; }
+        .btn-outline-danger { color: #dc3545; border-color: #dc3545; background-color: transparent; margin-top: 1.25rem; font-size: 0.875rem; 
+            padding: 0.5rem 1rem; }
+        .btn-outline-danger:hover { color: #fff; background-color: #dc3545; }
+
+        /* Éléments interactifs */
+        .fav-btn { cursor: pointer; font-size: 0.8rem; color: #ffc107; display: block; margin-top: 6px; font-weight: bold; text-decoration: none; }
+        .history-item { cursor: pointer; transition: background 0.2s; }
+        .history-item:hover { background-color: #f8f9fa; }
+        .hidden { display: none !important; }
+        .my-2 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+    </style>
+    
+</head>
+<body>
+
+<div class="wrapper">
+    <!-- Barre latérale -->
+    <nav class="sidebar">
+        <h5>👨‍🍳 ChefBot</h5>
+        <hr>
+        <ul class="nav-list">
+            <li><a id="link-chat-section" class="nav-link active" onclick="showSection('chat-section')">Nouvelle Recette</a></li>
+            <li><a id="link-history-section" class="nav-link" onclick="showSection('history-section')">Historique</a></li>
+            <li><a id="link-fav-section" class="nav-link" onclick="showSection('fav-section')">Favoris</a></li>
+        </ul>
+    </nav>
+
+    <!-- Contenu -->
+    <main class="main-content">
+        
+        <!-- SECTION CHAT -->
+        <div id="chat-section">
+            <div id="chat-box" class="chat-container">
+                <div class="msg-bot">Bonjour ! Je suis ton assistant cuisine. Qu'est-ce qu'on prépare ?</div>
+            </div>
+            <form id="chat-form" class="input-group">
+                <input type="text" class="form-control" id="input-message" placeholder="Posez votre question..." autocomplete="off">
+                <button class="btn btn-primary" type="submit">Envoyer</button>
+            </form>
+        </div>
+
+        <!-- SECTION HISTORIQUE -->
+        <div id="history-section" class="hidden">
+            <h3>Historique des requêtes</h3>
+            <div id="history-list" class="list-container"></div>
+            <button class="btn btn-outline-danger" onclick="clearStorage('chefHistory')">Effacer l'historique</button>
+        </div>
+
+        <!-- SECTION FAVORIS -->
+        <div id="fav-section" class="hidden">
+            <h3>Mes Recettes Favorites</h3>
+            <div id="fav-list" class="list-container"></div>
+            <button class="btn btn-outline-danger" onclick="clearStorage('chefFavs')">Vider les favoris</button>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const zoneChat = document.getElementById('chat-box');
+    const historyList = document.getElementById('history-list');
+    const favList = document.getElementById('fav-list');
+    const chatForm = document.getElementById('chat-form');
+
+    // 1. NAVIGATION
+    function showSection(id) {
+        document.getElementById('chat-section').classList.add('hidden');
+        document.getElementById('history-section').classList.add('hidden');
+        document.getElementById('fav-section').classList.add('hidden');
+        
+        document.getElementById('link-chat-section').classList.remove('active');
+        document.getElementById('link-history-section').classList.remove('active');
+        document.getElementById('link-fav-section').classList.remove('active');
+
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById('link-' + id).classList.add('active');
+        
+        if(id === 'history-section') renderHistory();
+        if(id === 'fav-section') renderFavorites();
+    }
+
+    // 2. ENVOI DU MESSAGE
+    chatForm.onsubmit = function(e) {
+        e.preventDefault();
+        const input = document.getElementById('input-message');
+        sendMessage(input.value);
+    };
+    function sendMessage(message) {
+    const input = document.getElementById('input-message');
+    const text = message.trim();
+
+    if (text) {
+        zoneChat.innerHTML += `<div class="msg-user">${text}</div>`;
+        saveToHistory(text); 
+        input.value = "";
+        zoneChat.scrollTop = zoneChat.scrollHeight;
+
+        // Utilisation d'un chemin relatif strict pour éviter les erreurs d'IP
+        fetch('http://127.0.0.1:5000/chat', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Erreur serveur " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            const botMsg = data.reponse || data.response; 
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg-bot';
+            msgDiv.innerText = botMsg;
+
+            const favBtn = document.createElement('span');
+            favBtn.className = 'fav-btn';
+            favBtn.innerHTML = "⭐ Ajouter aux favoris";
+            
+            favBtn.onclick = function() {
+                addToFav(botMsg);
+            };
+
+            msgDiv.appendChild(favBtn);
+            zoneChat.appendChild(msgDiv);
+            zoneChat.scrollTop = zoneChat.scrollHeight;
+        })
+        .catch(err => {
+            console.error(err);
+            zoneChat.innerHTML += `<div class="msg-bot text-danger">Erreur: Serveur hors ligne ou route introuvable.</div>`;
+        });
+    }
+}
+    // 3. STORAGE
+    function saveToHistory(msg) {
+        let history = JSON.parse(localStorage.getItem('chefHistory') || '[]');
+        if (history.length === 0 || history[history.length - 1].text !== msg) {
+            history.push({ text: msg, date: new Date().toLocaleString() });
+            localStorage.setItem('chefHistory', JSON.stringify(history));
+        }
+    }
+
+    function addToFav(content) {
+        let favs = JSON.parse(localStorage.getItem('chefFavs') || '[]');
+        if(!favs.includes(content)) {
+            favs.push(content);
+            localStorage.setItem('chefFavs', JSON.stringify(favs));
+            alert("Enregistré dans les favoris !");
+        } else {
+            alert("Déjà dans les favoris !");
+        }
+    }
+
+    function loadHistoryQuery(encodedText) {
+        const text = decodeURIComponent(encodedText);
+        showSection('chat-section');
+        const input = document.getElementById('input-message');
+        input.value = text;
+        sendMessage(text);
+    }
+
+    function renderHistory() {
+        const history = JSON.parse(localStorage.getItem('chefHistory') || '[]');
+        historyList.innerHTML = history.length ? history.map(item => {
+            const safeText = encodeURIComponent(item.text);
+            return `
+            <div class="p-2 border-bottom history-item" onclick="loadHistoryQuery('${safeText}')">
+                <small class="text-muted">${item.date}</small><br>
+                <strong>Question :</strong> ${item.text}
+            </div>`;
+        }).reverse().join('') : "<div class='p-2 text-muted'>Aucun historique.</div>";
+    }
+
+    function renderFavorites() {
+        const favs = JSON.parse(localStorage.getItem('chefFavs') || '[]');
+        favList.innerHTML = favs.length ? favs.map(f => `
+            <div class="msg-bot my-2" style="max-width:100%">${f}</div>
+        `).join('') : "<div class='p-2 text-muted'>Aucun favori pour le moment.</div>";
+    }
+
+    if (chatForm) {
+        chatForm.onsubmit = function(e) {
+            e.preventDefault();
+            const input = document.getElementById('input-message');
+            sendMessage(input.value);
+        };
+    }
+
+    function clearStorage(key) {
+        if(confirm("Voulez-vous vraiment tout effacer ?")) {
+            localStorage.removeItem(key);
+            key === 'chefHistory' ? renderHistory() : renderFavorites();
+        }
+    }
+</script>
+
+</body>
+</html>
