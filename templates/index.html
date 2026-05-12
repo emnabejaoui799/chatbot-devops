@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChefBot - Assistant Cuisine</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    
+</head>
+<body>
+
+<div class="wrapper">
+    <!-- Barre latérale -->
+    <nav class="sidebar">
+        <h5>👨‍🍳 ChefBot</h5>
+        <hr>
+        <ul class="nav-list">
+            <li><a id="link-chat-section" class="nav-link active" onclick="showSection('chat-section')">Nouvelle Recette</a></li>
+            <li><a id="link-history-section" class="nav-link" onclick="showSection('history-section')">Historique</a></li>
+            <li><a id="link-fav-section" class="nav-link" onclick="showSection('fav-section')">Favoris</a></li>
+        </ul>
+    </nav>
+
+    <!-- Contenu -->
+    <main class="main-content">
+        
+        <!-- SECTION CHAT --> 
+        <div id="chat-section">
+            <div id="chat-box" class="chat-container">
+                <div class="msg-bot">Bonjour ! Je suis ton assistant cuisine. Qu'est-ce qu'on prépare ?</div>
+            </div>
+            <form id="chat-form" class="input-group">
+                <input type="text" class="form-control" id="input-message" placeholder="Posez votre question..." autocomplete="off">
+                <button class="btn btn-primary" type="submit">Envoyer</button>
+            </form>
+        </div>
+
+        <!-- SECTION HISTORIQUE -->
+        <div id="history-section" class="hidden">
+            <h3>Historique des requêtes</h3>
+            <div id="history-list" class="list-container"></div>
+            <button class="btn btn-outline-danger" onclick="clearStorage('chefHistory')">Effacer l'historique</button>
+        </div>
+
+        <!-- SECTION FAVORIS -->
+        <div id="fav-section" class="hidden">
+            <h3>Mes Recettes Favorites</h3>
+            <div id="fav-list" class="list-container"></div>
+            <button class="btn btn-outline-danger" onclick="clearStorage('chefFavs')">Vider les favoris</button>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const zoneChat = document.getElementById('chat-box');
+    const historyList = document.getElementById('history-list');
+    const favList = document.getElementById('fav-list');
+    const chatForm = document.getElementById('chat-form');
+
+    // 1. NAVIGATION
+    function showSection(id) {
+        document.getElementById('chat-section').classList.add('hidden');
+        document.getElementById('history-section').classList.add('hidden');
+        document.getElementById('fav-section').classList.add('hidden');
+        
+        document.getElementById('link-chat-section').classList.remove('active');
+        document.getElementById('link-history-section').classList.remove('active');
+        document.getElementById('link-fav-section').classList.remove('active');
+
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById('link-' + id).classList.add('active');
+        
+        if(id === 'history-section') renderHistory();
+        if(id === 'fav-section') renderFavorites();
+    }
+
+    // 2. ENVOI DU MESSAGE
+    chatForm.onsubmit = function(e) {
+        e.preventDefault();
+        const input = document.getElementById('input-message');
+        sendMessage(input.value);
+    };
+    function sendMessage(message) {
+    const input = document.getElementById('input-message');
+    const text = message.trim();
+
+    if (text) {
+        zoneChat.innerHTML += `<div class="msg-user">${text}</div>`;
+        saveToHistory(text); 
+        input.value = "";
+        zoneChat.scrollTop = zoneChat.scrollHeight;
+
+        // Utilisation d'un chemin relatif strict pour éviter les erreurs d'IP
+        fetch('http://127.0.0.1:5000/chat', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Erreur serveur " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            const botMsg = data.reponse || data.response; 
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg-bot';
+            msgDiv.innerText = botMsg;
+
+            const favBtn = document.createElement('span');
+            favBtn.className = 'fav-btn';
+            favBtn.innerHTML = "⭐ Ajouter aux favoris";
+            
+            favBtn.onclick = function() {
+                addToFav(botMsg);
+            };
+
+            msgDiv.appendChild(favBtn);
+            zoneChat.appendChild(msgDiv);
+            zoneChat.scrollTop = zoneChat.scrollHeight;
+        })
+        .catch(err => {
+            console.error(err);
+            zoneChat.innerHTML += `<div class="msg-bot text-danger">Erreur: Serveur hors ligne ou route introuvable.</div>`;
+        });
+    }
+}
+    // 3. STORAGE
+    function saveToHistory(msg) {
+        let history = JSON.parse(localStorage.getItem('chefHistory') || '[]');
+        if (history.length === 0 || history[history.length - 1].text !== msg) {
+            history.push({ text: msg, date: new Date().toLocaleString() });
+            localStorage.setItem('chefHistory', JSON.stringify(history));
+        }
+    }
+
+    function addToFav(content) {
+        let favs = JSON.parse(localStorage.getItem('chefFavs') || '[]');
+        if(!favs.includes(content)) {
+            favs.push(content);
+            localStorage.setItem('chefFavs', JSON.stringify(favs));
+            alert("Enregistré dans les favoris !");
+        } else {
+            alert("Déjà dans les favoris !");
+        }
+    }
+
+    function loadHistoryQuery(encodedText) {
+        const text = decodeURIComponent(encodedText);
+        showSection('chat-section');
+        const input = document.getElementById('input-message');
+        input.value = text;
+        sendMessage(text);
+    }
+
+    function renderHistory() {
+        const history = JSON.parse(localStorage.getItem('chefHistory') || '[]');
+        historyList.innerHTML = history.length ? history.map(item => {
+            const safeText = encodeURIComponent(item.text);
+            return `
+            <div class="p-2 border-bottom history-item" onclick="loadHistoryQuery('${safeText}')">
+                <small class="text-muted">${item.date}</small><br>
+                <strong>Question :</strong> ${item.text}
+            </div>`;
+        }).reverse().join('') : "<div class='p-2 text-muted'>Aucun historique.</div>";
+    }
+
+    function renderFavorites() {
+        const favs = JSON.parse(localStorage.getItem('chefFavs') || '[]');
+        favList.innerHTML = favs.length ? favs.map(f => `
+            <div class="msg-bot my-2" style="max-width:100%">${f}</div>
+        `).join('') : "<div class='p-2 text-muted'>Aucun favori pour le moment.</div>";
+    }
+
+    if (chatForm) {
+        chatForm.onsubmit = function(e) {
+            e.preventDefault();
+            const input = document.getElementById('input-message');
+            sendMessage(input.value);
+        };
+    }
+
+    function clearStorage(key) {
+        if(confirm("Voulez-vous vraiment tout effacer ?")) {
+            localStorage.removeItem(key);
+            key === 'chefHistory' ? renderHistory() : renderFavorites();
+        }
+    }
+</script>
+
+</body>
+</html>
